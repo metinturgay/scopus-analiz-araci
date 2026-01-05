@@ -99,7 +99,7 @@ def to_excel(df):
     return processed_data
 
 # --- 3. ARAYÜZ ---
-st.title("🇪🇺 Scopus Twinning Partner Bulucu")
+st.title("Scopus Twinning Partner Bulucu")
 st.markdown("""
 Bu araç, Scopus çıktısındaki makaleleri tarayarak **sadece seçili Avrupa ülkelerindeki** ve **e-posta adresi ulaşılabilir olan** araştırmacıları listeler.
 """)
@@ -164,4 +164,5 @@ if uploaded_file is not None:
                 
     except Exception as e:
         st.error(f"Beklenmedik bir hata oluştu: {e}")
+
 
