@@ -109,10 +109,10 @@ with st.expander("ℹ️ Scopus'tan Dosya Nasıl İndirilir? (Adım Adım)", exp
     st.markdown("""
     Doğru sonuç almak için Scopus'tan veriyi şu şekilde indirmelisiniz:
     
-    1. **Scopus'a Giriş Yapın:** Üniversite ağınızdan [Scopus.com](https://www.scopus.com) adresine gidin.
-    2. **Arama Yapın:** `Documents` sekmesinde anahtar kelimenizi yazın.
-       * *Öneri:* Filtrelerden Tarih aralığını `2024` - `2027` seçmeniz önerilir.
-    3. **Tümünü Seçin:** Sonuçlar gelince tablonun en üstündeki `All` kutucuğunu veya `Select all` seçeneğini işaretleyin.
+    1. **Scopus'a Giriş Yapın:** [Scopus.com](https://www.scopus.com) adresine giderek, kurumsal eposta şifreniz ile giriş yapın.
+    2. **Arama Yapın:** `Documents` sekmesinde anahtar kelimenizi 'Article title, Abstract, Keywords' seçeneğinde aratın. 
+       * *Öneri:* Filtrelerden Tarih aralığını `2025` ve sonrası seçmeniz önerilir.
+    3. **Tümünü Seçin:** Sonuçlar gelince tablonun en üstündeki `All` kutucuğuna bastıktan sonra `Select all` seçeneğini işaretleyin.
     4. **Dışa Aktar (Export):** * `Export` butonuna tıklayın.
        * Format olarak **CSV** seçin.
        * **Şu bilgilerin seçili olduğundan emin olun:**
@@ -121,7 +121,7 @@ with st.expander("ℹ️ Scopus'tan Dosya Nasıl İndirilir? (Adım Adım)", exp
          * ✅ Abstract & keywords
          * ✅ Indexed keywords
          * ✅ Funding details
-         * ✅ **Other information** (Bu çok önemli, e-postalar burada bulunur!)
+         * ✅ **Other information**
     5. **İndir:** `Export` butonuna basıp dosyayı bilgisayarınıza indirin.
     """)
 
@@ -164,3 +164,4 @@ if uploaded_file is not None:
                 
     except Exception as e:
         st.error(f"Beklenmedik bir hata oluştu: {e}")
+
