@@ -125,27 +125,7 @@ with st.expander("ℹ️ Scopus'tan Dosya Nasıl İndirilir? (Adım Adım)", exp
     5. **İndir:** `Export` butonuna basıp dosyayı bilgisayarınıza indirin.
     """)
 
-# --- FOOTER (İMZA) ---
-st.markdown("""
-    <style>
-        .footer {
-            text-align: center;
-            margin-top: 50px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            color: #666;
-            font-size: 14px;
-        }
-        .footer a {
-            color: #e44d26; /* Link rengi (Turuncu ton) */
-            text-decoration: none;
-            font-weight: bold;
-        }
-    </style>
-    <div class="footer">
-        Made by <a href="https://metinturgay.net" target="_blank">Metin Turgay</a>
-    </div>
-    """, unsafe_allow_html=True)
+
 
 # --- DOSYA YÜKLEME ---
 uploaded_file = st.file_uploader("📂 Scopus'tan indirdiğiniz CSV dosyasını buraya bırakın", type=['csv'])
@@ -188,4 +168,20 @@ if uploaded_file is not None:
         st.error(f"Beklenmedik bir hata oluştu: {e}")
 
 
+# --- FOOTER (İMZA) ---
+st.markdown("""
+    <style>
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 8px;
+        }
+    </style>
+    <div class="footer">
+        Made by <a href="https://metinturgay.net" target="_blank">Metin Turgay</a>
+    </div>
+    """, unsafe_allow_html=True)
 
