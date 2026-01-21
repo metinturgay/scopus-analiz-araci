@@ -6,23 +6,41 @@ import io
 # --- SAYFA AYARLARI ---
 st.set_page_config(page_title="Twinning Partner Finder", layout="wide", page_icon="🌍")
 
-# --- SABİT ÜLKE LİSTESİ (Manuel Seçim İçin) ---
-WORLD_COUNTRIES = sorted([
-    "United States", "China", "United Kingdom", "Germany", "India", "Japan", "France", "Italy", "Canada", "Australia",
-    "Spain", "South Korea", "Brazil", "Russia", "Netherlands", "Iran", "Turkey", "Switzerland", "Poland", "Sweden",
-    "Taiwan", "Belgium", "Malaysia", "Denmark", "Portugal", "Mexico", "South Africa", "Austria", "Egypt", "Czech Republic",
-    "Israel", "Finland", "Norway", "Greece", "Singapore", "Pakistan", "Thailand", "Saudi Arabia", "Ireland", "Romania",
-    "New Zealand", "Argentina", "Chile", "Ukraine", "Hungary", "Colombia", "Nigeria", "Vietnam", "Indonesia", "Slovakia",
-    "Croatia", "Slovenia", "Lithuania", "Estonia", "Latvia", "Serbia", "Bulgaria", "Philippines", "Morocco", "Iraq",
-    "Tunisia", "Algeria", "Bangladesh", "Jordan", "Kuwait", "Lebanon", "Qatar", "United Arab Emirates", "Kazakhstan"
+# --- 1. SABİT LİSTELER ---
+
+# Twinning Ülkeleri (Sabit Liste)
+TWINNING_COUNTRIES = [
+    "Austria", "Belgium", "Denmark", "Finland", "France", "Germany", "Iceland", "Ireland", "Italy",
+    "Luxembourg", "Netherlands", "Norway", "Spain", "Sweden", "Switzerland", "United Kingdom", "UK"
+]
+
+# Tüm Dünya Ülkeleri (Genişletilmiş Liste)
+ALL_COUNTRIES_LIST = sorted([
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+    "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia",
+    "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon",
+    "Canada", "Cape Verde", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica",
+    "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt",
+    "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia",
+    "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guyana", "Haiti", "Honduras", "Hungary",
+    "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan",
+    "Kenya", "Kiribati", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein",
+    "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania",
+    "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar",
+    "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia",
+    "Norway", "Oman", "Pakistan", "Palau", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal",
+    "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Samoa", "San Marino", "Saudi Arabia",
+    "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia",
+    "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria",
+    "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan",
+    "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu",
+    "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
 ])
 
-# --- YARDIMCI FONKSİYONLAR ---
+# --- 2. YARDIMCI FONKSİYONLAR ---
 def parse_correspondence(corr_str):
     if not isinstance(corr_str, str): return {'emails': [], 'p_name': ''}
-    # Email regex
     emails = re.findall(r'email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', corr_str)
-    # İlk kısım genelde isimdir
     p_name = corr_str.split(';')[0].strip()
     return {'emails': emails, 'primary_name': p_name}
 
@@ -39,7 +57,7 @@ def match_email(author_name, corr_info, corr_str_full):
         return corr_info['emails'][0]
     return None
 
-def process_data(df, filter_mode, selected_countries):
+def process_data(df, filter_mode, selected_countries, custom_countries_input):
     extracted_data = []
     
     # İlerleme çubuğu
@@ -47,8 +65,15 @@ def process_data(df, filter_mode, selected_countries):
     status_text = st.empty()
     total_rows = len(df)
     
+    # Manuel girişleri listeye ekle (virgülle ayrılmışsa böl ve temizle)
+    manual_country_list = []
+    if custom_countries_input:
+        manual_country_list = [c.strip() for c in custom_countries_input.split(',') if c.strip()]
+    
+    # Seçili ülkeler + Manuel girilenler
+    final_selected_countries = set(selected_countries + manual_country_list)
+
     for index, row in df.iterrows():
-        # Görsel güncelleme (her 50 satırda bir)
         if index % 50 == 0:
             progress_bar.progress(min(index / total_rows, 1.0))
             status_text.text(f"Taranıyor: {index}/{total_rows} satır...")
@@ -77,34 +102,50 @@ def process_data(df, filter_mode, selected_countries):
             
             country = country.strip()
             
-            # --- FİLTRELEME MANTIĞI BURADA ---
+            # Önce Email'i bul (TR kontrolü için gerekli)
+            email = match_email(author_name, corr_info, str(corr_str))
+            
+            # Eğer email yoksa zaten ekleyemeyiz, sonraki kişiye geç
+            if not email:
+                continue
+
+            # --- FİLTRELEME MANTIĞI ---
             should_include = False
             
-            if filter_mode == "Tüm Dünyayı Getir (TR Dahil)":
+            # 1. Sadece Twinning Ülkeleri
+            if filter_mode == "Sadece Twinning Ülkeleri":
+                if country in TWINNING_COUNTRIES:
+                    should_include = True
+            
+            # 2. Tüm Dünya (TR Dahil) - Hiçbir filtre yok, herkes gelir
+            elif filter_mode == "Tüm Dünyayı Getir (TR Dahil)":
                 should_include = True
             
+            # 3. TR Hariç (Ülke Adı VE .edu.tr kontrolü)
             elif filter_mode == "Tüm Dünyayı Getir (TR Hariç)":
-                # Turkey veya Turkiye değilse al
-                if country.lower() not in ["turkey", "türkiye", "turkiye"]:
+                is_tr_country = country.lower() in ["turkey", "türkiye", "turkiye"]
+                is_tr_email = ".edu.tr" in email.lower() # Email içinde .edu.tr var mı?
+                
+                # Hem ülke TR değil, hem de mail .edu.tr değilse ekle
+                if not is_tr_country and not is_tr_email:
                     should_include = True
                     
+            # 4. Manuel Seçim (Liste + Elle Yazılanlar)
             elif filter_mode == "Manuel Ülke Seçimi":
-                if country in selected_countries:
+                # Scopus bazen ülke isimlerini farklı yazabilir, o yüzden tam eşleşme arıyoruz
+                if country in final_selected_countries:
                     should_include = True
             
-            # Eğer filtreyi geçtiyse E-posta kontrolü yap
+            # Karar olumluysa listeye ekle
             if should_include:
-                email = match_email(author_name, corr_info, str(corr_str))
-                
-                if email:
-                    extracted_data.append({
-                        'Yazar Adı': author_name,
-                        'Yazar E-postası': email,
-                        'Ülke': country,
-                        'Kurum': affiliation,
-                        'Makale Başlığı': paper_title,
-                        'Yıl': year
-                    })
+                extracted_data.append({
+                    'Yazar Adı': author_name,
+                    'Yazar E-postası': email,
+                    'Ülke': country,
+                    'Kurum': affiliation,
+                    'Makale Başlığı': paper_title,
+                    'Yıl': year
+                })
     
     progress_bar.progress(1.0)
     status_text.empty()
@@ -115,83 +156,85 @@ def to_excel(df):
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Sheet1')
         worksheet = writer.sheets['Sheet1']
-        worksheet.set_column('A:A', 25) # İsim
-        worksheet.set_column('B:B', 30) # Email
-        worksheet.set_column('C:C', 15) # Ülke
-        worksheet.set_column('D:D', 50) # Kurum
-        worksheet.set_column('E:E', 40) # Başlık
+        worksheet.set_column('A:A', 25)
+        worksheet.set_column('B:B', 30)
+        worksheet.set_column('C:C', 15)
+        worksheet.set_column('D:D', 50)
+        worksheet.set_column('E:E', 40)
     processed_data = output.getvalue()
     return processed_data
 
 # --- ARAYÜZ TASARIMI ---
 
 st.title("🌍 Scopus Twinning Partner Bulucu")
-st.markdown("Scopus verilerinden yazar ve e-posta ayıklama aracı. Ülke bazlı filtreleme yapabilirsiniz.")
+st.markdown("Scopus verilerinden yazar ve e-posta ayıklama aracı.")
 
-# --- SIDEBAR (SOL MENÜ) AYARLARI ---
+# --- SIDEBAR (SOL MENÜ) ---
 st.sidebar.header("⚙️ Filtre Ayarları")
 
-# 1. Filtre Modu Seçimi
+# RADYO BUTONU
 filter_option = st.sidebar.radio(
     "Hangi ülkeleri istiyorsunuz?",
-    ("Tüm Dünyayı Getir (TR Dahil)", 
+    ("Sadece Twinning Ülkeleri", 
+     "Tüm Dünyayı Getir (TR Dahil)", 
      "Tüm Dünyayı Getir (TR Hariç)", 
      "Manuel Ülke Seçimi")
 )
 
 selected_countries_list = []
+custom_countries_text = ""
 
-# 2. Eğer Manuel Seçim yapıldıysa listeyi göster
+# Eğer Manuel Seçim ise
 if filter_option == "Manuel Ülke Seçimi":
     st.sidebar.markdown("---")
     container = st.sidebar.container()
-    all_selected = st.sidebar.checkbox("Listedeki Tümünü Seç", value=False)
     
+    # 1. Hazır Listeden Seçim
+    all_selected = st.sidebar.checkbox("Listedeki Tümünü Seç", value=False)
     if all_selected:
-        selected_countries_list = container.multiselect(
-            "Ülkeleri Seçin:",
-            WORLD_COUNTRIES,
-            default=WORLD_COUNTRIES
-        )
+        selected_countries_list = container.multiselect("Ülkeleri Seçin:", ALL_COUNTRIES_LIST, default=ALL_COUNTRIES_LIST)
     else:
-        # Varsayılan olarak boş veya birkaç popüler ülke seçili gelebilir
-        selected_countries_list = container.multiselect(
-            "Ülkeleri Seçin:",
-            WORLD_COUNTRIES,
-            default=["United Kingdom", "Germany", "France", "Italy", "Spain"]
-        )
+        selected_countries_list = container.multiselect("Ülkeleri Seçin:", ALL_COUNTRIES_LIST, default=["United Kingdom", "Germany", "France"])
+    
+    # 2. Manuel Metin Girişi (Yeni Özellik)
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**➕ Listede Olmayan Ülkeler:**")
+    custom_countries_text = st.sidebar.text_input(
+        "Ülke isimlerini virgülle ayırarak yazın:",
+        placeholder="Örn: Kurdistan, USSR, West Germany..."
+    )
 
-# --- KULLANIM KILAVUZU ---
+# Bilgi Notları
+if filter_option == "Sadece Twinning Ülkeleri":
+    st.sidebar.info(f"Seçili Twinning Ülkeleri:\n{', '.join(TWINNING_COUNTRIES)}")
+elif filter_option == "Tüm Dünyayı Getir (TR Hariç)":
+    st.sidebar.warning("⚠️ Türkiye (Turkey/Turkiye) ve '.edu.tr' uzantılı e-postalar filtrelenecektir.")
+
+# --- REHBER ---
 with st.expander("ℹ️ Scopus'tan Dosya Nasıl İndirilir? (Rehber)", expanded=False):
     st.markdown("""
     1. **Scopus'a Giriş Yapın:** [Scopus.com](https://www.scopus.com)
     2. **Arama Yapın:** Anahtar kelimenizi ve yılları (örn: 2024-2027) girin.
     3. **Tümünü Seçin:** Tablonun üstündeki `All` kutucuğunu işaretleyin.
     4. **Dışa Aktar (Export):** * Format: **CSV**
-       * Mutlaka seçin: **Other information** (E-postalar burada), **Authors with affiliations**, **Bibliographical information**.
+       * Mutlaka seçin: **Other information**, **Authors with affiliations**, **Bibliographical information**.
     5. **İndirin** ve buraya yükleyin.
     """)
 
-# --- DOSYA YÜKLEME ALANI ---
+# --- DOSYA YÜKLEME ---
 uploaded_file = st.file_uploader("📂 Scopus CSV dosyasını buraya sürükleyin", type=['csv'])
 
 if uploaded_file is not None:
-    # Veriyi oku
     try:
         df = pd.read_csv(uploaded_file)
         
-        # Sütun Kontrolü
-        if 'Authors with affiliations' not in df.columns:
-            st.error("❌ Dosyada 'Authors with affiliations' sütunu yok. Yanlış dosya formatı.")
-        elif 'Correspondence Address' not in df.columns:
-            st.error("❌ Dosyada 'Correspondence Address' sütunu yok. E-postalar çekilemez. Lütfen 'Other information' seçerek indirin.")
+        if 'Authors with affiliations' not in df.columns or 'Correspondence Address' not in df.columns:
+            st.error("❌ Dosya formatı hatalı. Lütfen 'Authors with affiliations' ve 'Correspondence Address' sütunlarının olduğundan emin olun.")
         else:
-            st.info(f"Dosya yüklendi. Seçilen Mod: **{filter_option}**")
+            st.info(f"Dosya yüklendi. Mod: **{filter_option}**")
             
-            # İşleme Başla Butonu (İsteğe bağlı, otomatik de olabilir ama buton daha kontrollü)
             if st.button("🚀 Analizi Başlat"):
-                
-                result_df = process_data(df, filter_option, selected_countries_list)
+                result_df = process_data(df, filter_option, selected_countries_list, custom_countries_text)
                 
                 if not result_df.empty:
                     st.success(f"✅ İşlem Tamamlandı! Toplam **{len(result_df)}** kişi bulundu.")
@@ -208,7 +251,7 @@ if uploaded_file is not None:
                     st.warning("⚠️ Seçilen kriterlere uygun (e-postalı) kayıt bulunamadı.")
                     
     except Exception as e:
-        st.error(f"Dosya okunurken hata oluştu: {e}")
+        st.error(f"Hata: {e}")
 
 # --- FOOTER ---
 st.markdown("""
