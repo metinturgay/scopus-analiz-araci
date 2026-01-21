@@ -270,9 +270,10 @@ st.markdown("""
         .footer a {color: #e44d26; text-decoration: none; font-weight: bold;}
     </style>
     <div class="footer" style="font-size:6px";>
-        Made with ❤️ by <a href="https://metinturgay.net" target="_blank">Metin Turgay</a>
+        Made by <a href="https://metinturgay.net" target="_blank">Metin Turgay</a>
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
