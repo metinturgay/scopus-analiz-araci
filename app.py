@@ -269,10 +269,11 @@ st.markdown("""
         .footer {text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;}
         .footer a {color: #e44d26; text-decoration: none; font-weight: bold;}
     </style>
-    <div class="footer">
+    <div class="footer" style="font-size:6px";>
         Made with ❤️ by <a href="https://metinturgay.net" target="_blank">Metin Turgay</a>
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
