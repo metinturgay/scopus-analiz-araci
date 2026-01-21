@@ -201,7 +201,7 @@ if filter_option == "Manuel Ülke Seçimi":
     st.sidebar.markdown("**➕ Listede Olmayan Ülkeler:**")
     custom_countries_text = st.sidebar.text_input(
         "Ülke isimlerini virgülle ayırarak yazın:",
-        placeholder="Örn: Kurdistan, USSR, West Germany..."
+        placeholder="Örn: USSR, West Germany..."
     )
 
 # Bilgi Notları
@@ -263,3 +263,4 @@ st.markdown("""
         Made with ❤️ by <a href="https://metinturgay.net" target="_blank">Metin Turgay</a>
     </div>
     """, unsafe_allow_html=True)
+
