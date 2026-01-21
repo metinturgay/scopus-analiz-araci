@@ -210,15 +210,25 @@ if filter_option == "Sadece Twinning Ülkeleri":
 elif filter_option == "Tüm Dünyayı Getir (TR Hariç)":
     st.sidebar.warning("⚠️ Türkiye (Turkey/Turkiye) ve '.edu.tr' uzantılı e-postalar filtrelenecektir.")
 
-# --- REHBER ---
-with st.expander("ℹ️ Scopus'tan Dosya Nasıl İndirilir? (Rehber)", expanded=False):
+# --- KULLANIM KILAVUZU ---
+with st.expander("ℹ️ Scopus'tan Dosya Nasıl İndirilir? (Adım Adım)", expanded=False):
     st.markdown("""
-    1. **Scopus'a Giriş Yapın:** [Scopus.com](https://www.scopus.com)
-    2. **Arama Yapın:** Anahtar kelimenizi ve yılları (örn: 2024-2027) girin.
-    3. **Tümünü Seçin:** Tablonun üstündeki `All` kutucuğunu işaretleyin.
-    4. **Dışa Aktar (Export):** * Format: **CSV**
-       * Mutlaka seçin: **Other information**, **Authors with affiliations**, **Bibliographical information**.
-    5. **İndirin** ve buraya yükleyin.
+    Doğru sonuç almak için Scopus'tan veriyi şu şekilde indirmelisiniz:
+    
+    1. **Scopus'a Giriş Yapın:** [Scopus.com](https://www.scopus.com) adresine giderek, kurumsal eposta şifreniz ile giriş yapın.
+    2. **Arama Yapın:** `Documents` sekmesinde anahtar kelimenizi 'Article title, Abstract, Keywords' seçeneğinde aratın. 
+       * *Öneri:* Filtrelerden Tarih aralığını `2025` ve sonrası seçmeniz önerilir.
+    3. **Tümünü Seçin:** Sonuçlar gelince tablonun en üstündeki `All` kutucuğuna bastıktan sonra `Select all` seçeneğini işaretleyin.
+    4. **Dışa Aktar (Export):** * `Export` butonuna tıklayın.
+       * Format olarak **CSV** seçin.
+       * **Şu bilgilerin seçili olduğundan emin olun:**
+         * ✅ Citation information
+         * ✅ Bibliographical information
+         * ✅ Abstract & keywords
+         * ✅ Indexed keywords
+         * ✅ Funding details
+         * ✅ **Other information**
+    5. **İndir:** `Export` butonuna basıp dosyayı bilgisayarınıza indirin.
     """)
 
 # --- DOSYA YÜKLEME ---
@@ -263,5 +273,6 @@ st.markdown("""
         Made with ❤️ by <a href="https://metinturgay.net" target="_blank">Metin Turgay</a>
     </div>
     """, unsafe_allow_html=True)
+
 
 
