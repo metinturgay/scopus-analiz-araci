@@ -175,9 +175,9 @@ st.sidebar.header("⚙️ Filtre Ayarları")
 # RADYO BUTONU
 filter_option = st.sidebar.radio(
     "Hangi ülkeleri istiyorsunuz?",
-    ("Sadece Twinning Ülkeleri", 
-     "Tüm Dünyayı Getir (TR Dahil)", 
+    ("Tüm Dünyayı Getir (TR Dahil)", 
      "Tüm Dünyayı Getir (TR Hariç)", 
+     "Sadece Twinning Ülkeleri", 
      "Manuel Ülke Seçimi")
 )
 
@@ -263,4 +263,5 @@ st.markdown("""
         Made with ❤️ by <a href="https://metinturgay.net" target="_blank">Metin Turgay</a>
     </div>
     """, unsafe_allow_html=True)
+
 
