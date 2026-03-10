@@ -236,7 +236,8 @@ uploaded_file = st.file_uploader("📂 Scopus CSV dosyasını buraya sürükleyi
 
 if uploaded_file is not None:
     try:
-        df = pd.read_csv(uploaded_file)
+        # Hatalı satırları atlayarak okuması için güncellendi:
+        df = pd.read_csv(uploaded_file, engine='python', on_bad_lines='skip')
         
         if 'Authors with affiliations' not in df.columns or 'Correspondence Address' not in df.columns:
             st.error("❌ Dosya formatı hatalı. Lütfen 'Authors with affiliations' ve 'Correspondence Address' sütunlarının olduğundan emin olun.")
@@ -273,6 +274,7 @@ st.markdown("""
         Made by <a href="https://metinturgay.net" target="_blank">Metin Turgay</a>
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
