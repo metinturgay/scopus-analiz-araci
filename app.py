@@ -7,14 +7,11 @@ import io
 st.set_page_config(page_title="Twinning Partner Finder", layout="wide", page_icon="🌍")
 
 # --- 1. SABİT LİSTELER ---
-
-# Twinning Ülkeleri (Sabit Liste)
 TWINNING_COUNTRIES = [
     "Austria", "Belgium", "Denmark", "Finland", "France", "Germany", "Iceland", "Ireland", "Italy",
     "Luxembourg", "Netherlands", "Norway", "Spain", "Sweden", "Switzerland", "United Kingdom", "UK"
 ]
 
-# Tüm Dünya Ülkeleri (Genişletilmiş Liste)
 ALL_COUNTRIES_LIST = sorted([
     "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
     "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia",
@@ -38,107 +35,85 @@ ALL_COUNTRIES_LIST = sorted([
 ])
 
 # --- 2. YARDIMCI FONKSİYONLAR ---
-def parse_correspondence(corr_str):
-    if not isinstance(corr_str, str): return {'emails': [], 'p_name': ''}
-    emails = re.findall(r'email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', corr_str)
-    p_name = corr_str.split(';')[0].strip()
-    return {'emails': emails, 'primary_name': p_name}
+def parse_row(row, filter_mode, final_selected_countries):
+    """
+    Her bir veri satırını hızlıca ayrıştıran,
+    Scopus'un isim/kurum dizilişindeki mantıksal hataları süzen fonksiyon.
+    """
+    try:
+        # Hatalı veri tiplerine karşı string dönüşümü
+        auth_affil_str = str(row.get('Authors with affiliations', ''))
+        corr_str = str(row.get('Correspondence Address', ''))
+        paper_title = str(row.get('Title', ''))
+        year = str(row.get('Year', ''))
 
-def match_email(author_name, corr_info, corr_str_full):
-    if not corr_info['emails']: return None
-    parts = author_name.split(', ')
-    surname = parts[0].strip()
-    
-    # Sorumlu yazar kontrolü
-    if surname.lower() in corr_info['primary_name'].lower():
-        return corr_info['emails'][0]
-    # Tek mail varsa ve soyadı metinde geçiyorsa
-    if len(corr_info['emails']) == 1 and surname in corr_str_full:
-        return corr_info['emails'][0]
-    return None
+        if auth_affil_str == 'nan' or not auth_affil_str:
+            return []
 
-def process_data(df, filter_mode, selected_countries, custom_countries_input):
-    extracted_data = []
-    
-    # İlerleme çubuğu
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    total_rows = len(df)
-    
-    # Manuel girişleri listeye ekle (virgülle ayrılmışsa böl ve temizle)
-    manual_country_list = []
-    if custom_countries_input:
-        manual_country_list = [c.strip() for c in custom_countries_input.split(',') if c.strip()]
-    
-    # Seçili ülkeler + Manuel girilenler
-    final_selected_countries = set(selected_countries + manual_country_list)
-
-    for index, row in df.iterrows():
-        if index % 50 == 0:
-            progress_bar.progress(min(index / total_rows, 1.0))
-            status_text.text(f"Taranıyor: {index}/{total_rows} satır...")
-
-        auth_affil_str = row.get('Authors with affiliations', '')
-        corr_str = row.get('Correspondence Address', '')
-        paper_title = row.get('Title', '')
-        year = row.get('Year', '')
-        
-        if pd.isna(auth_affil_str): continue
+        # 1. E-posta Tespiti (Yedekli Regex)
+        emails = re.findall(r'email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', corr_str)
+        if not emails:
+            # Bazen 'email:' etiketi olmadan doğrudan yazılır
+            emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', corr_str)
             
-        corr_info = parse_correspondence(corr_str)
+        p_name = corr_str.split(';')[0].strip().lower() if corr_str else ''
+        corr_info = {'emails': emails, 'primary_name': p_name}
+
         authors_list = auth_affil_str.split('; ')
-        
+        extracted = []
+
         for auth_entry in authors_list:
             parts = auth_entry.split(', ')
             
-            if len(parts) >= 3:
-                author_name = f"{parts[0]}, {parts[1]}"
-                affiliation = ", ".join(parts[2:])
-                country = parts[-1].strip().replace('.', '')
+            # Yazar, kurum ve ülke olarak ayrılamıyorsa format bozuktur, atla
+            if len(parts) < 2:
+                continue
+
+            # 2. Doğru Endeksleme: İlk parça yazarın tam adı, son parça ülke.
+            author_name = parts[0].strip()
+            affiliation = ", ".join(parts[1:-1]).strip() if len(parts) > 2 else ""
+            country = parts[-1].strip().replace('.', '')
+            
+            # 3. Soyadı Ayıklama Algoritması (Eşleştirme paradoksunu çözen kısım)
+            # "Mortensen S.S." veya "Mortensen S." gibi isimlerden sadece "Mortensen" kısmını alır.
+            tokens = author_name.split()
+            if len(tokens) > 1 and ('.' in tokens[-1] or len(tokens[-1]) == 1 or tokens[-1].isupper()):
+                surname = ' '.join(tokens[:-1]).lower()
             else:
-                author_name = auth_entry
-                affiliation = ""
-                country = ""
-            
-            country = country.strip()
-            
-            # Önce Email'i bul (TR kontrolü için gerekli)
-            email = match_email(author_name, corr_info, str(corr_str))
-            
-            # Eğer email yoksa zaten ekleyemeyiz, sonraki kişiye geç
+                surname = author_name.lower()
+
+            # 4. E-posta Eşleştirme
+            email = None
+            if corr_info['emails']:
+                if surname in corr_info['primary_name']:
+                    email = corr_info['emails'][0]
+                elif len(corr_info['emails']) == 1 and surname in corr_str.lower():
+                    # Yazışma adresinde sadece 1 mail varsa ve soyadı adreste geçiyorsa, o mail bu yazarındır.
+                    email = corr_info['emails'][0]
+
             if not email:
                 continue
 
-            # --- FİLTRELEME MANTIĞI ---
+            # 5. Filtreleme Mantığı
             should_include = False
-            
-            # 1. Sadece Twinning Ülkeleri
+            country_lower = country.lower()
+
             if filter_mode == "Sadece Twinning Ülkeleri":
                 if country in TWINNING_COUNTRIES:
                     should_include = True
-            
-            # 2. Tüm Dünya (TR Dahil) - Hiçbir filtre yok, herkes gelir
             elif filter_mode == "Tüm Dünyayı Getir (TR Dahil)":
                 should_include = True
-            
-            # 3. TR Hariç (Ülke Adı VE .edu.tr kontrolü)
             elif filter_mode == "Tüm Dünyayı Getir (TR Hariç)":
-                is_tr_country = country.lower() in ["turkey", "türkiye", "turkiye"]
-                is_tr_email = ".edu.tr" in email.lower() # Email içinde .edu.tr var mı?
-                
-                # Hem ülke TR değil, hem de mail .edu.tr değilse ekle
+                is_tr_country = country_lower in ["turkey", "türkiye", "turkiye"]
+                is_tr_email = ".edu.tr" in email.lower()
                 if not is_tr_country and not is_tr_email:
                     should_include = True
-                    
-            # 4. Manuel Seçim (Liste + Elle Yazılanlar)
             elif filter_mode == "Manuel Ülke Seçimi":
-                # Scopus bazen ülke isimlerini farklı yazabilir, o yüzden tam eşleşme arıyoruz
                 if country in final_selected_countries:
                     should_include = True
-            
-            # Karar olumluysa listeye ekle
+
             if should_include:
-                extracted_data.append({
+                extracted.append({
                     'Yazar Adı': author_name,
                     'Yazar E-postası': email,
                     'Ülke': country,
@@ -146,10 +121,29 @@ def process_data(df, filter_mode, selected_countries, custom_countries_input):
                     'Makale Başlığı': paper_title,
                     'Yıl': year
                 })
-    
-    progress_bar.progress(1.0)
-    status_text.empty()
-    return pd.DataFrame(extracted_data)
+        return extracted
+    except Exception:
+        # Satırda beklenmeyen, parse edilemeyen bir anormallik varsa sistemi çökertme, boş dön
+        return []
+
+def process_data(df, filter_mode, selected_countries, custom_countries_input):
+    manual_country_list = [c.strip() for c in custom_countries_input.split(',') if c.strip()] if custom_countries_input else []
+    final_selected_countries = set(selected_countries + manual_country_list)
+
+    # İşlem yapılacak vektör uzayını daraltmak için sadece gerekli sütunları alıyoruz. 
+    # Bu sayede RAM kullanımı ciddi oranda düşer.
+    cols_needed = ['Authors with affiliations', 'Correspondence Address', 'Title', 'Year']
+    available_cols = [c for c in cols_needed if c in df.columns]
+    df_sub = df[available_cols]
+
+    # Vektörel işlem: Satır satır for döngüsü yerine Pandas'ın C tabanlı apply metodunu kullanıyoruz.
+    with st.spinner("Matris işleniyor, lütfen bekleyin..."):
+        results_series = df_sub.apply(lambda row: parse_row(row, filter_mode, final_selected_countries), axis=1)
+
+    # İki boyutlu listeyi tek boyuta indirge
+    flat_list = [item for sublist in results_series if sublist for item in sublist]
+
+    return pd.DataFrame(flat_list)
 
 def to_excel(df):
     output = io.BytesIO()
@@ -161,18 +155,15 @@ def to_excel(df):
         worksheet.set_column('C:C', 15)
         worksheet.set_column('D:D', 50)
         worksheet.set_column('E:E', 40)
-    processed_data = output.getvalue()
-    return processed_data
+    return output.getvalue()
 
 # --- ARAYÜZ TASARIMI ---
-
 st.title("🌍 Scopus Twinning Partner Bulucu")
 st.markdown("Scopus verilerinden yazar ve e-posta ayıklama aracı.")
 
 # --- SIDEBAR (SOL MENÜ) ---
 st.sidebar.header("⚙️ Filtre Ayarları")
 
-# RADYO BUTONU
 filter_option = st.sidebar.radio(
     "Hangi ülkeleri istiyorsunuz?",
     ("Tüm Dünyayı Getir (TR Dahil)", 
@@ -184,19 +175,16 @@ filter_option = st.sidebar.radio(
 selected_countries_list = []
 custom_countries_text = ""
 
-# Eğer Manuel Seçim ise
 if filter_option == "Manuel Ülke Seçimi":
     st.sidebar.markdown("---")
     container = st.sidebar.container()
     
-    # 1. Hazır Listeden Seçim
     all_selected = st.sidebar.checkbox("Listedeki Tümünü Seç", value=False)
     if all_selected:
         selected_countries_list = container.multiselect("Ülkeleri Seçin:", ALL_COUNTRIES_LIST, default=ALL_COUNTRIES_LIST)
     else:
         selected_countries_list = container.multiselect("Ülkeleri Seçin:", ALL_COUNTRIES_LIST, default=["United Kingdom", "Germany", "France"])
     
-    # 2. Manuel Metin Girişi (Yeni Özellik)
     st.sidebar.markdown("---")
     st.sidebar.markdown("**➕ Listede Olmayan Ülkeler:**")
     custom_countries_text = st.sidebar.text_input(
@@ -204,31 +192,18 @@ if filter_option == "Manuel Ülke Seçimi":
         placeholder="Örn: USSR, West Germany..."
     )
 
-# Bilgi Notları
 if filter_option == "Sadece Twinning Ülkeleri":
     st.sidebar.info(f"Seçili Twinning Ülkeleri:\n{', '.join(TWINNING_COUNTRIES)}")
 elif filter_option == "Tüm Dünyayı Getir (TR Hariç)":
     st.sidebar.warning("⚠️ Türkiye (Turkey/Turkiye) ve '.edu.tr' uzantılı e-postalar filtrelenecektir.")
 
-# --- KULLANIM KILAVUZU ---
 with st.expander("ℹ️ Scopus'tan Dosya Nasıl İndirilir? (Adım Adım)", expanded=False):
     st.markdown("""
-    Doğru sonuç almak için Scopus'tan veriyi şu şekilde indirmelisiniz:
-    
-    1. **Scopus'a Giriş Yapın:** [Scopus.com](https://www.scopus.com) adresine giderek, kurumsal eposta şifreniz ile giriş yapın.
-    2. **Arama Yapın:** `Documents` sekmesinde anahtar kelimenizi 'Article title, Abstract, Keywords' seçeneğinde aratın. 
-       * *Öneri:* Filtrelerden Tarih aralığını `2025` ve sonrası seçmeniz önerilir.
-    3. **Tümünü Seçin:** Sonuçlar gelince tablonun en üstündeki `All` kutucuğuna bastıktan sonra `Select all` seçeneğini işaretleyin.
-    4. **Dışa Aktar (Export):** * `Export` butonuna tıklayın.
-       * Format olarak **CSV** seçin.
-       * **Şu bilgilerin seçili olduğundan emin olun:**
-         * ✅ Citation information
-         * ✅ Bibliographical information
-         * ✅ Abstract & keywords
-         * ✅ Indexed keywords
-         * ✅ Funding details
-         * ✅ **Other information**
-    5. **İndir:** `Export` butonuna basıp dosyayı bilgisayarınıza indirin.
+    1. **Scopus'a Giriş Yapın:** Scopus.com
+    2. **Arama Yapın:** Documents sekmesinde anahtar kelimenizi aratın. 
+    3. **Tümünü Seçin:** 'All' -> 'Select all'.
+    4. **Dışa Aktar (Export):** CSV formatını seçin. Gerekli tüm bilgi sütunlarını işaretleyin.
+    5. **İndir:** Export butonuna basın.
     """)
 
 # --- DOSYA YÜKLEME ---
@@ -236,11 +211,11 @@ uploaded_file = st.file_uploader("📂 Scopus CSV dosyasını buraya sürükleyi
 
 if uploaded_file is not None:
     try:
-        # Hatalı satırları atlayarak okuması için güncellendi:
-        df = pd.read_csv(uploaded_file, engine='python', on_bad_lines='skip')
+        # low_memory=False parametresi büyük verilerde kolon tiplerinin karışmasını engeller.
+        df = pd.read_csv(uploaded_file, low_memory=False, on_bad_lines='skip')
         
         if 'Authors with affiliations' not in df.columns or 'Correspondence Address' not in df.columns:
-            st.error("❌ Dosya formatı hatalı. Lütfen 'Authors with affiliations' ve 'Correspondence Address' sütunlarının olduğundan emin olun.")
+            st.error("❌ Dosya formatı hatalı. Gerekli sütunlar eksik.")
         else:
             st.info(f"Dosya yüklendi. Mod: **{filter_option}**")
             
@@ -262,21 +237,4 @@ if uploaded_file is not None:
                     st.warning("⚠️ Seçilen kriterlere uygun (e-postalı) kayıt bulunamadı.")
                     
     except Exception as e:
-        st.error(f"Hata: {e}")
-
-# --- FOOTER ---
-st.markdown("""
-    <style>
-        .footer {text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 14px;}
-        .footer a {color: #e44d26; text-decoration: none; font-weight: bold;}
-    </style>
-    <div class="footer" style="font-size:6px";>
-        Made by <a href="https://metinturgay.net" target="_blank">Metin Turgay</a>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-
-
-
-
+        st.error(f"Beklenmeyen bir hata oluştu: {e}")
